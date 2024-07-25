@@ -9,6 +9,8 @@
 #include "score.h"
 #include "heap.h"
 
+#include <iostream> //debug
+
 using namespace std;
 
 /**
@@ -16,9 +18,8 @@ using namespace std;
  */
 vector<ScoreIndexPair> findSimilar(
     vector<float>& flattenedEmbeddings,
-    vector<float>& norms,
     vector<float>& query,
-    size_t numRows,
+    size_t numEmbeddings,
     size_t vectorSize,
     size_t topK,
     size_t batchSize,
@@ -29,31 +30,35 @@ vector<ScoreIndexPair> findSimilar(
         throw invalid_argument("embeddings vector size must be equal to query vector size");
     }
     if (batchSize == 0) {
-        batchSize = numRows;
+        batchSize = numEmbeddings;
     }
 
     // min heap to keep track of top k vectors
     ScoreIndexHeap heap;
 
-    // get norm of query
-    float queryNorm = norm(query);
-
     // loop over chunks in dataset
-    for (size_t i = 0; i < numRows; i += batchSize) {
-        size_t currentBatchSize = min(batchSize, numRows - i);
+    for (size_t i = 0; i < numEmbeddings; i += batchSize) {
+        size_t currentBatchSize = min(batchSize, numEmbeddings - i);
 
         // get cosine similarity on this batch
         vector<float> scores(currentBatchSize);
-        auto cosineSimilarity = cuda ? cudaCosineSimilarity : cpuCosineSimilarity;
-        cosineSimilarity(
-            flattenedEmbeddings.data() + i * vectorSize,
-            query.data(),
-            norms.data() + i,
-            queryNorm,
-            scores.data(),
-            currentBatchSize,
-            vectorSize
-        );
+        if (cuda) {
+            cudaCosineSimilarity(
+                flattenedEmbeddings.data() + i * vectorSize,
+                query.data(),
+                scores.data(),
+                currentBatchSize,
+                vectorSize
+            );
+        } else {
+            cpuCosineSimilarity(
+                flattenedEmbeddings.data() + i * vectorSize,
+                query.data(),
+                scores.data(),
+                currentBatchSize,
+                vectorSize
+            );
+        }
 
         // update heap to keep track of top k
         for (size_t j = 0; j < currentBatchSize; j++) {
@@ -70,12 +75,11 @@ PYBIND11_MODULE(similarity_search, m) {
         &findSimilar,
         "Return score and index of top k most similar vectors in embeddings relative to the query vector.",
         "flattened_embeddings"_a,
-        "norms"_a,
         "query"_a,
-        "num_rows"_a,
+        "num_embeddings"_a,
         "vector_size"_a,
         "top_k"_a,
-        "batch_size"_a=4096,
+        "batch_size"_a=65536,
         "cuda"_a=false
     );
 }

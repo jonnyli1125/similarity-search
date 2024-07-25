@@ -7,12 +7,11 @@
 /**
  * Kernel to compute dot product of a single query vector relative to a batch of vectors.
  */
-__global__ void cosineSimilarityKernel(
+__global__ void multiplyAndSum(
     const float* batch,
     const float* query,
-    const float* batchNorms,
-    float queryNorm,
-    float* results,
+    float* dotResults,
+    float* normResults,
     size_t batchSize,
     size_t vectorSize
 ) {
@@ -20,45 +19,62 @@ __global__ void cosineSimilarityKernel(
     if (idx < batchSize * vectorSize) {
         size_t batchIdx = idx / vectorSize;
         size_t vectorIdx = idx % vectorSize;
-        atomicAdd(&results[batchIdx], batch[idx] * query[vectorIdx] / batchNorms[batchIdx] / queryNorm);
+        atomicAdd(&dotResults[batchIdx], batch[idx] * query[vectorIdx]);
+        atomicAdd(&normResults[batchIdx], batch[idx] * batch[idx]);
     }
 }
+
+__global__ void normalize(
+    float* dotResults,
+    const float* normResults,
+    float queryNorm,
+    size_t batchSize
+) {
+    size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < batchSize) {
+        dotResults[idx] /= (sqrtf(normResults[idx]) * queryNorm);
+    }
+}
+
 
 void cudaCosineSimilarity(
     const float* batch,
     const float* query,
-    const float* batchNorms,
-    const float queryNorm,
     float* results,
     size_t batchSize,
     size_t vectorSize
 ) {
-    // assign cpu pointers
+    float queryNorm = norm(query, vectorSize);
+
+    // allocate cuda memory
     float* cudaBatch;
     float* cudaQuery;
-    float* cudaBatchNorms;
-    float* cudaResults;
+    float* cudaDotResults;
+    float* cudaNormResults;
     size_t memSize = batchSize * sizeof(float);
-
-    // allocate gpu memory and copy
     cudaMalloc(&cudaBatch, memSize * vectorSize);
     cudaMalloc(&cudaQuery, memSize);
-    cudaMalloc(&cudaBatchNorms, memSize);
-    cudaMalloc(&cudaResults, memSize);
+    cudaMalloc(&cudaDotResults, memSize);
+    cudaMalloc(&cudaNormResults, memSize);
     cudaMemcpy(cudaBatch, batch, memSize * vectorSize, cudaMemcpyHostToDevice);
     cudaMemcpy(cudaQuery, query, memSize, cudaMemcpyHostToDevice);
-    cudaMemcpy(cudaBatchNorms, batchNorms, memSize, cudaMemcpyHostToDevice);
-    cudaMemset(cudaResults, 0, memSize);
+    cudaMemset(cudaDotResults, 0, memSize);
+    cudaMemset(cudaNormResults, 0, memSize);
 
     // run kernel
     int threads = 256;
     int blocks = ((int)(batchSize * vectorSize) + threads - 1) / threads;
-    cosineSimilarityKernel KERNEL_ARGS2(blocks, threads) (cudaBatch, cudaQuery, cudaBatchNorms, queryNorm, cudaResults, batchSize, vectorSize);
+    multiplyAndSum KERNEL_ARGS2(blocks, threads) (cudaBatch, cudaQuery, cudaDotResults, cudaNormResults, batchSize, vectorSize);
     cudaDeviceSynchronize();
 
-    // copy results to cpu and free gpu memory
-    cudaMemcpy(results, cudaResults, memSize, cudaMemcpyDeviceToHost);
+    blocks = ((int)batchSize + threads - 1) / threads;
+    normalize KERNEL_ARGS2(blocks, threads) (cudaDotResults, cudaNormResults, queryNorm, batchSize);
+    cudaDeviceSynchronize();
+
+    // copy results to cpu and free cuda memory
+    cudaMemcpy(results, cudaDotResults, memSize, cudaMemcpyDeviceToHost);
     cudaFree(cudaBatch);
     cudaFree(cudaQuery);
-    cudaFree(cudaResults);
+    cudaFree(cudaDotResults);
+    cudaFree(cudaNormResults);
 }

@@ -1,4 +1,4 @@
-# Vector Similarity Search Engine
+# Vector Similarity Search Engine for RAG
 
 GPU-accelerated similarity search from scratch using C++ and CUDA.
 

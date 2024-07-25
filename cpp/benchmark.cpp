@@ -23,15 +23,10 @@ int main(int argc, char* argv[]) {
     mt19937 gen(rd());
     uniform_real_distribution<float> dis(-1.0f, 1.0f);
     vector<float> flattenedEmbeddings(numRows * vectorSize);
-    vector<float> norms(numRows);
     for (size_t i = 0; i < numRows; i++) {
-        float norm = 0.0f;
         for (size_t j = 0; j < vectorSize; j++) {
-            float value = dis(gen);
-            flattenedEmbeddings[i * vectorSize + j] = value;
-            norm += value * value;
+            flattenedEmbeddings[i * vectorSize + j] = dis(gen);
         }
-        norms[i] = sqrt(norm);
     }
 
     // create dummy query
@@ -44,11 +39,10 @@ int main(int argc, char* argv[]) {
     // run similarity search
     cout << "Running similarity search" << endl;
     for (bool cuda : {false, true}) {
-        for (size_t batchSize : {1024, 2048, 4096, 8192, 16384, 32768, 65535 }) {
+        for (size_t batchSize : {65536}) {
             steady_clock::time_point start = high_resolution_clock::now();
             vector<tuple<float, size_t>> result = findSimilar(
                 flattenedEmbeddings,
-                norms,
                 query,
                 numRows,
                 vectorSize,

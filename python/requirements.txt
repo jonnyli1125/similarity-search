@@ -1,0 +1,4 @@
+pybind11
+sentence-transformers
+scikit-learn
+openai

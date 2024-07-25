@@ -3,25 +3,27 @@
 void cpuCosineSimilarity(
     const float* batch,
     const float* query,
-    const float* batchNorms,
-    const float queryNorm,
     float* results,
     size_t batchSize,
     size_t vectorSize
 ) {
+    float queryNorm = norm(query, vectorSize);
+    std::vector<float> batchNorms(batchSize, 0.0f);
     for (size_t i = 0; i < batchSize; i++) {
         results[i] = 0;
         for (size_t j = 0; j < vectorSize; j++) {
-            results[i] += batch[i * vectorSize + j] * query[j];
+            float val = batch[i * vectorSize + j];
+            results[i] += val * query[j];
+            batchNorms[i] += val * val;
         }
-        results[i] /= (batchNorms[i] * queryNorm);
+        results[i] /= (sqrtf(batchNorms[i]) * queryNorm);
     }
 }
 
-float norm(std::vector<float> vec) {
+float norm(const float* vec, size_t len) {
     float norm = 0.0f;
-    for (float x : vec) {
-        norm += x * x;
+    for (size_t i = 0; i < len; i++) {
+        norm += vec[i] * vec[i];
     }
-    return (float)sqrt(norm);
+    return sqrtf(norm);
 }

@@ -3,32 +3,27 @@
 #include <stdexcept>
 
 #include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
+#include <pybind11/numpy.h>
 
 #include "search.h"
 #include "score.h"
 #include "heap.h"
 
-#include <iostream> //debug
-
 using namespace std;
+namespace py = pybind11;
 
 /**
  * Return score and index of top k most similar vectors in embeddings relative to the query vector.
  */
 vector<ScoreIndexPair> findSimilar(
-    vector<float>& flattenedEmbeddings,
-    vector<float>& query,
+    const float* flattenedEmbeddings,
+    const float* query,
     size_t numEmbeddings,
     size_t vectorSize,
     size_t topK,
     size_t batchSize,
     bool cuda
 ) {
-    // validation
-    if (vectorSize != query.size()) {
-        throw invalid_argument("embeddings vector size must be equal to query vector size");
-    }
     if (batchSize == 0) {
         batchSize = numEmbeddings;
     }
@@ -44,16 +39,16 @@ vector<ScoreIndexPair> findSimilar(
         vector<float> scores(currentBatchSize);
         if (cuda) {
             cudaCosineSimilarity(
-                flattenedEmbeddings.data() + i * vectorSize,
-                query.data(),
+                flattenedEmbeddings + i * vectorSize,
+                query,
                 scores.data(),
                 currentBatchSize,
                 vectorSize
             );
         } else {
             cpuCosineSimilarity(
-                flattenedEmbeddings.data() + i * vectorSize,
-                query.data(),
+                flattenedEmbeddings + i * vectorSize,
+                query,
                 scores.data(),
                 currentBatchSize,
                 vectorSize
@@ -68,18 +63,41 @@ vector<ScoreIndexPair> findSimilar(
     return heapTopK(heap, topK);
 }
 
+vector<ScoreIndexPair> findSimilarNumpy(
+    py::array_t<float>& embeddings,
+    py::array_t<float>& query,
+    size_t topK,
+    size_t batchSize,
+    bool cuda
+) {
+    py::buffer_info embeddingsBuf = embeddings.request();
+    if (embeddingsBuf.ndim != 2) {
+        throw invalid_argument("embeddings must be a 2D array");
+    }
+    size_t numEmbeddings = embeddingsBuf.shape[0];
+    size_t vectorSize = embeddingsBuf.shape[1];
+    py::buffer_info queryBuf = query.request();
+    if (queryBuf.ndim != 1) {
+        throw invalid_argument("query must be a 1D array");
+    }
+    if (queryBuf.shape[0] != vectorSize) {
+        throw invalid_argument("query dim must be same as embeddings vector dim");
+    }
+    const float* embeddingsPtr = static_cast<float *>(embeddingsBuf.ptr);
+    const float* queryPtr = static_cast<float *>(queryBuf.ptr);
+    return findSimilar(embeddingsPtr, queryPtr, numEmbeddings, vectorSize, topK, batchSize, cuda);
+}
+
 using namespace pybind11::literals;
 PYBIND11_MODULE(similarity_search, m) {
     m.def(
         "find_similar",
-        &findSimilar,
+        &findSimilarNumpy,
         "Return score and index of top k most similar vectors in embeddings relative to the query vector.",
-        "flattened_embeddings"_a,
+        "embeddings"_a,
         "query"_a,
-        "num_embeddings"_a,
-        "vector_size"_a,
         "top_k"_a,
         "batch_size"_a=65536,
-        "cuda"_a=false
+        "cuda"_a=true
     );
 }

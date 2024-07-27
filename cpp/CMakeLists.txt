@@ -30,3 +30,6 @@ target_link_libraries(similarity_search PRIVATE SimilaritySearch ${Python3_LIBRA
 target_include_directories(SimilaritySearch PRIVATE ${pybind11_INCLUDE_DIRS})
 target_include_directories(SimilaritySearchBenchmark PRIVATE ${pybind11_INCLUDE_DIRS})
 target_include_directories(similarity_search PRIVATE ${pybind11_INCLUDE_DIRS})
+
+# copy library to python
+install(TARGETS similarity_search LIBRARY DESTINATION ${CMAKE_SOURCE_DIR}/../python)

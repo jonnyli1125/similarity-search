@@ -42,8 +42,8 @@ int main(int argc, char* argv[]) {
         for (size_t batchSize : {65536}) {
             steady_clock::time_point start = high_resolution_clock::now();
             vector<tuple<float, size_t>> result = findSimilar(
-                flattenedEmbeddings,
-                query,
+                flattenedEmbeddings.data(),
+                query.data(),
                 numRows,
                 vectorSize,
                 topK,

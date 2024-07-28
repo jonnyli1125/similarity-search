@@ -3,4 +3,4 @@ build
 .venv
 *.pyc
 *.pyd
-data
+*.npy

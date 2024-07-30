@@ -1,7 +1,6 @@
 import argparse
 import heapq
 import json
-from typing import Protocol
 
 import numpy as np
 
@@ -10,20 +9,21 @@ from utils import latency
 import similarity_search
 
 
-class Index(Protocol):
-    def search(self, query, k, use_cuda=False):
-        pass
-
-
-class FlatIndex(Index):
+class FlatIndex:
     def __init__(self, embeddings):
         self.embeddings = embeddings
 
     def search(self, query, k, use_cuda=False):
         return similarity_search.find_similar(self.embeddings, query, k, use_cuda=use_cuda)
 
+    @staticmethod
+    def from_pretrained(self, data_dir):
+        embeddings = np.load(f"{data_dir}/embeddings.npy")
+        print("embeddings:", embeddings.shape)
+        return FlatIndex(embeddings)
 
-class IVFIndex(Index):
+
+class IVFIndex:
     def __init__(self, cluster_embeddings, cluster_mappings, cluster_centroids, n_probe):
         self.n_probe = n_probe
         self.cluster_embeddings = cluster_embeddings
@@ -39,6 +39,24 @@ class IVFIndex(Index):
         )
         return heapq.nlargest(k, search_iter)
 
+    @staticmethod
+    def from_pretrained(data_dir, n_probe=8):
+        # load files
+        with open(f"{data_dir}/cluster_mappings.json", "r") as f:
+            cluster_mappings = json.load(f)
+        n_clusters = len(cluster_mappings)
+        cluster_embeddings = [np.load(f"{data_dir}/cluster_embeddings_{i}.npy") for i in range(n_clusters)]
+        cluster_centroids = np.load(f"{data_dir}/cluster_centroids.npy")
+
+        # print info
+        n_embeddings = sum(c.shape[0] for c in cluster_embeddings)
+        embed_dim = cluster_centroids.shape[1]
+        print("clusters:", n_clusters)
+        print("embeddings:", (n_embeddings, embed_dim))
+        print("centroids:", cluster_centroids.shape)
+
+        return IVFIndex(cluster_embeddings, cluster_mappings, cluster_centroids, n_probe=n_probe)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -49,26 +67,9 @@ if __name__ == "__main__":
 
     print("Loading embeddings index")
     if args.index == "flat":
-        embeddings = np.load(f"{args.data_dir}/embeddings.npy")
-        print("embeddings:", embeddings.shape)
-        index = FlatIndex(embeddings)
+        index = FlatIndex.from_pretrained(args.data_dir)
     elif args.index == "ivf":
-        # load files
-        with open(f"{args.data_dir}/cluster_mappings.json", "r") as f:
-            cluster_mappings = json.load(f)
-        n_clusters = len(cluster_mappings)
-        cluster_embeddings = [np.load(f"{args.data_dir}/cluster_embeddings_{i}.npy") for i in range(n_clusters)]
-        cluster_centroids = np.load(f"{args.data_dir}/cluster_centroids.npy")
-
-        # print info
-        n_embeddings = sum(c.shape[0] for c in cluster_embeddings)
-        embed_dim = cluster_centroids.shape[1]
-        print("clusters:", n_clusters)
-        print("embeddings:", (n_embeddings, embed_dim))
-        print("centroids:", cluster_centroids.shape)
-
-        # create index
-        index = IVFIndex(cluster_embeddings, cluster_mappings, cluster_centroids, n_probe=8)
+        index = IVFIndex.from_pretrained(args.data_dir)
     else:
         raise ValueError("Invalid embeddings index type")
 

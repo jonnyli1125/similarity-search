@@ -1,6 +1,7 @@
 import argparse
 import json
 import glob
+import os
 
 import numpy as np
 from tqdm.auto import tqdm
@@ -14,20 +15,22 @@ def get_model():
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("data_dir")
+    parser.add_argument("-b", "--batch-size", type=int, default=1024)
     args = parser.parse_args()
 
     model = get_model()
     embeddings = []
     file_lengths = []
-    for filename in tqdm(glob.glob(f"{args.data_dir}/*.json")):
+    files = sorted(glob.glob(f"{args.data_dir}/*.json"))
+    for filename in tqdm(files):
         with open(filename, "r", encoding="utf-8") as f:
             articles = json.load(f)
-        file_lengths.append((filename, len(articles)))
+        file_lengths.append((os.path.relpath(filename, args.data_dir), len(articles)))
         texts = [article["text"] for article in articles]
-        new_embeddings = model.encode(texts, device="cuda", batch_size=1024, show_progress_bar=True)
+        new_embeddings = model.encode(texts, device="cuda", batch_size=args.batch_size, show_progress_bar=True)
         embeddings.append(new_embeddings)
     embeddings = np.concatenate(embeddings)
     print(embeddings.shape)
     np.save(f"{args.data_dir}/embeddings.npy", embeddings)
-    with open(f"{args.data_dir}/file_lengths.txt", "w") as f:
+    with open(f"{args.data_dir}/file_lengths.json", "w") as f:
         json.dump(file_lengths, f)

@@ -1,4 +1,3 @@
-import argparse
 import json
 import glob
 import os
@@ -7,14 +6,15 @@ import numpy as np
 from tqdm.auto import tqdm
 from sentence_transformers import SentenceTransformer
 
+from utils import args_parser
+
 
 def get_model():
     return SentenceTransformer("all-MiniLM-L6-v2")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("data_dir")
+    parser = args_parser()
     parser.add_argument("-b", "--batch-size", type=int, default=1024)
     args = parser.parse_args()
 

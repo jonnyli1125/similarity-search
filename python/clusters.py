@@ -1,12 +1,12 @@
-import argparse
 import json
 
 import numpy as np
 from sklearn.cluster import KMeans
 
+from utils import args_parser
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("data_dir")
+    parser = args_parser()
     parser.add_argument("-n", "--n-clusters", type=int, default=128)
     args = parser.parse_args()
 

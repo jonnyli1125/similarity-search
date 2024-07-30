@@ -1,11 +1,10 @@
-import argparse
 import heapq
 import json
 
 import numpy as np
 
 from embeddings import get_model
-from utils import latency
+from utils import latency, args_parser
 import similarity_search
 
 
@@ -51,7 +50,6 @@ class IVFIndex:
         # print info
         n_embeddings = sum(c.shape[0] for c in cluster_embeddings)
         embed_dim = cluster_centroids.shape[1]
-        print("clusters:", n_clusters)
         print("embeddings:", (n_embeddings, embed_dim))
         print("centroids:", cluster_centroids.shape)
 
@@ -59,8 +57,7 @@ class IVFIndex:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("data_dir")
+    parser = args_parser()
     parser.add_argument("-i", "--index", choices=["flat", "ivf"], default="flat")
     parser.add_argument("-r", "--result", action="store_true", default=False)
     args = parser.parse_args()

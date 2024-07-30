@@ -1,11 +1,10 @@
-import argparse
 import json
 import functools
 import sys
 
 from embeddings import get_model
 from index import IVFIndex
-from utils import latency
+from utils import latency, args_parser
 
 
 class DocsDB:
@@ -39,17 +38,19 @@ class DocsIndex:
         results = self.embed_index.search(query, k, use_cuda=True)
         return [(score, self.docs_db.get(i)) for score, i in results]
 
+    @staticmethod
+    def from_pretrained(data_dir):
+        model = get_model()
+        embed_index = IVFIndex.from_pretrained(data_dir)
+        docs_db = DocsDB(data_dir)
+        return DocsIndex(model, embed_index, docs_db)
+
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("data_dir")
-    args = parser.parse_args()
+    args = args_parser().parse_args()
 
     print("Loading...")
-    model = get_model()
-    embed_index = IVFIndex.from_pretrained(args.data_dir)
-    docs_db = DocsDB(args.data_dir)
-    docs_index = DocsIndex(model, embed_index, docs_db)
+    docs_index = DocsIndex.from_pretrained(args.data_dir)
     print("Ready. Type any query:")
 
     for query_text in sys.stdin:

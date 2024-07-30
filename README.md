@@ -45,7 +45,7 @@ First we need to train the index, i.e. create embedding vectors and clusterings:
 ```bash
 cd python
 python3 embeddings.py $DATA_DIR
-python3 clusters.py $DATA_DIR --nlist 128
+python3 clusters.py $DATA_DIR --n-clusters 128
 ```
 
 ### Tasks

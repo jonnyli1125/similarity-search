@@ -15,8 +15,7 @@ __global__ void multiplyAndSum(
     size_t batchSize,
     size_t vectorSize
 ) {
-    size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
-    if (idx < batchSize * vectorSize) {
+    for (size_t idx = blockIdx.x * blockDim.x + threadIdx.x; idx < batchSize * vectorSize; idx += blockDim.x * gridDim.x) {
         size_t batchIdx = idx / vectorSize;
         size_t vectorIdx = idx % vectorSize;
         atomicAdd(&dotResults[batchIdx], batch[idx] * query[vectorIdx]);
@@ -30,8 +29,7 @@ __global__ void normalize(
     float queryNorm,
     size_t batchSize
 ) {
-    size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
-    if (idx < batchSize) {
+    for (size_t idx = blockIdx.x * blockDim.x + threadIdx.x; idx < batchSize; idx += blockDim.x * gridDim.x) {
         dotResults[idx] /= (sqrtf(normResults[idx]) * queryNorm);
     }
 }
@@ -51,28 +49,30 @@ void cudaCosineSimilarity(
     float* cudaQuery;
     float* cudaDotResults;
     float* cudaNormResults;
-    size_t memSize = batchSize * sizeof(float);
-    cudaMalloc(&cudaBatch, memSize * vectorSize);
-    cudaMalloc(&cudaQuery, memSize);
-    cudaMalloc(&cudaDotResults, memSize);
-    cudaMalloc(&cudaNormResults, memSize);
-    cudaMemcpy(cudaBatch, batch, memSize * vectorSize, cudaMemcpyHostToDevice);
-    cudaMemcpy(cudaQuery, query, memSize, cudaMemcpyHostToDevice);
-    cudaMemset(cudaDotResults, 0, memSize);
-    cudaMemset(cudaNormResults, 0, memSize);
+    size_t batchMemSize = batchSize * sizeof(float);
+    size_t queryMemSize = vectorSize * sizeof(float);
+    size_t totalMemSize = batchSize * vectorSize * sizeof(float);
+    cudaMalloc(&cudaBatch, totalMemSize);
+    cudaMalloc(&cudaQuery, queryMemSize);
+    cudaMalloc(&cudaDotResults, batchMemSize);
+    cudaMalloc(&cudaNormResults, batchMemSize);
+    cudaMemcpy(cudaBatch, batch, totalMemSize, cudaMemcpyHostToDevice);
+    cudaMemcpy(cudaQuery, query, queryMemSize, cudaMemcpyHostToDevice);
+    cudaMemset(cudaDotResults, 0, batchMemSize);
+    cudaMemset(cudaNormResults, 0, batchMemSize);
 
     // run kernel
     int threads = 256;
-    int blocks = ((int)(batchSize * vectorSize) + threads - 1) / threads;
+    int blocks = std::min(65535, ((int)(batchSize * vectorSize) + threads - 1) / threads);
     multiplyAndSum KERNEL_ARGS2(blocks, threads) (cudaBatch, cudaQuery, cudaDotResults, cudaNormResults, batchSize, vectorSize);
     cudaDeviceSynchronize();
 
-    blocks = ((int)batchSize + threads - 1) / threads;
+    blocks = std::min(65535, ((int)batchSize + threads - 1) / threads);
     normalize KERNEL_ARGS2(blocks, threads) (cudaDotResults, cudaNormResults, queryNorm, batchSize);
     cudaDeviceSynchronize();
 
     // copy results to cpu and free cuda memory
-    cudaMemcpy(results, cudaDotResults, memSize, cudaMemcpyDeviceToHost);
+    cudaMemcpy(results, cudaDotResults, batchMemSize, cudaMemcpyDeviceToHost);
     cudaFree(cudaBatch);
     cudaFree(cudaQuery);
     cudaFree(cudaDotResults);

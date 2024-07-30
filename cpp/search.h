@@ -14,7 +14,7 @@ std::vector<std::tuple<float, size_t>> findSimilar(
     size_t vectorSize,
     size_t topK,
     size_t batchSize = 65536,
-    bool cuda = true
+    bool useCuda = true
 );
 
 std::vector<std::tuple<float, size_t>> findSimilarNumpy(
@@ -22,7 +22,7 @@ std::vector<std::tuple<float, size_t>> findSimilarNumpy(
     pybind11::array_t<float>& query,
     size_t topK,
     size_t batchSize = 65536,
-    bool cuda = true
+    bool useCuda = true
 );
 
 #endif

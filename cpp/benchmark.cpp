@@ -38,7 +38,7 @@ int main(int argc, char* argv[]) {
 
     // run similarity search
     cout << "Running similarity search" << endl;
-    for (bool cuda : {false, true}) {
+    for (bool useCuda : {false, true}) {
         for (size_t batchSize : {65536}) {
             steady_clock::time_point start = high_resolution_clock::now();
             vector<tuple<float, size_t>> result = findSimilar(
@@ -48,7 +48,7 @@ int main(int argc, char* argv[]) {
                 vectorSize,
                 topK,
                 batchSize,
-                cuda
+                useCuda
             );
             steady_clock::time_point end = high_resolution_clock::now();
 
@@ -56,7 +56,7 @@ int main(int argc, char* argv[]) {
             duration<double> diff = end - start;
             double seconds = (double)diff.count();
             double eps = numRows / seconds;
-            cout << (cuda ? "cuda" : "cpu") << ", batch size " << batchSize << ": "
+            cout << (useCuda ? "cuda" : "cpu") << ", batch size " << batchSize << ": "
                 << seconds << " seconds total, " << eps << " embeddings/second" << endl;
             if (showResults) {
                 cout << "results: [";

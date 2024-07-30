@@ -17,7 +17,7 @@ vector<ScoreIndexPair> findSimilar(
     size_t vectorSize,
     size_t topK,
     size_t batchSize,
-    bool cuda
+    bool useCuda
 ) {
     if (batchSize == 0) {
         batchSize = numEmbeddings;
@@ -32,7 +32,7 @@ vector<ScoreIndexPair> findSimilar(
 
         // get cosine similarity on this batch
         vector<float> scores(currentBatchSize);
-        if (cuda) {
+        if (useCuda) {
             cudaCosineSimilarity(
                 flattenedEmbeddings + i * vectorSize,
                 query,
@@ -63,7 +63,7 @@ vector<ScoreIndexPair> findSimilarNumpy(
     py::array_t<float>& query,
     size_t topK,
     size_t batchSize,
-    bool cuda
+    bool useCuda
 ) {
     py::buffer_info embeddingsBuf = embeddings.request();
     if (embeddingsBuf.ndim != 2) {
@@ -80,7 +80,7 @@ vector<ScoreIndexPair> findSimilarNumpy(
     }
     const float* embeddingsPtr = static_cast<float *>(embeddingsBuf.ptr);
     const float* queryPtr = static_cast<float *>(queryBuf.ptr);
-    return findSimilar(embeddingsPtr, queryPtr, numEmbeddings, vectorSize, topK, batchSize, cuda);
+    return findSimilar(embeddingsPtr, queryPtr, numEmbeddings, vectorSize, topK, batchSize, useCuda);
 }
 
 using namespace pybind11::literals;
@@ -93,6 +93,6 @@ PYBIND11_MODULE(similarity_search, m) {
         "query"_a,
         "top_k"_a,
         "batch_size"_a=65536,
-        "cuda"_a=true
+        "use_cuda"_a=true
     );
 }

@@ -16,7 +16,7 @@ class FlatIndex:
         return similarity_search.find_similar(self.embeddings, query, k, use_cuda=use_cuda)
 
     @staticmethod
-    def from_pretrained(self, data_dir):
+    def from_pretrained(data_dir):
         embeddings = np.load(f"{data_dir}/embeddings.npy")
         print("embeddings:", embeddings.shape)
         return FlatIndex(embeddings)

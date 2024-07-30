@@ -1,6 +1,5 @@
 import json
 import functools
-import sys
 
 from embeddings import get_model
 from index import IVFIndex
@@ -53,7 +52,8 @@ if __name__ == "__main__":
     docs_index = DocsIndex.from_pretrained(args.data_dir)
     print("Ready. Type any query:")
 
-    for query_text in sys.stdin:
+    while True:
+        query_text = input("> ")
         results, seconds = latency(docs_index.search, query_text, k=3)
         for i, (score, doc_text) in enumerate(results):
             print(f"{i+1} ({score}): {doc_text[:100]}...")

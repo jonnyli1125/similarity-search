@@ -27,6 +27,7 @@ class RAG:
         docs_index = DocsIndex.from_pretrained(data_dir)
         return RAG(docs_index)
 
+
 if __name__ == "__main__":
     args = args_parser().parse_args()
 

@@ -87,5 +87,5 @@ Example output:
 ```
 > what is learning rate in gradient descent? keep the answer short
 The learning rate in gradient descent is a tuning parameter that determines the step size at each iteration as the model moves toward a minimum of a loss function. It controls how quickly or slowly a model "learns" by adjusting how much each update based on the gradient calculation affects the model parameters.
-5.235556700034067 seconds
+4.680505099939182 seconds
 ```
